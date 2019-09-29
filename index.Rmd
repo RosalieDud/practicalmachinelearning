@@ -1,0 +1,148 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+render("input.Rmd", "pdf_document")
+
+## **Peer-graded Assignment: Prediction Assignment Writeup**
+
+
+### **Synopsis**
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). The goal of this project is to predict the manner in which they did their exercise. This is the "classe" variable in the training set.
+
+Assignment:
+The goal of the project is to predict the manner in which the participants did the exercise. This is the "classe" variable in the training set. This report includes:
+- a description of how the model is built
+- how cross validation is used
+- the expected out of error sample
+- why the choises are made
+- prediction of the 20 different test cases
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+cache = TRUE
+```
+
+### **Packages**
+
+```{r}
+library(AppliedPredictiveModeling)
+library(caret)
+library(forecast)
+library(ggplot2)
+library(rpart)
+library(randomForest)
+library(e1071)
+```
+
+### **Download the data**
+
+First we download both of the datasets in R: 
+
+```{r}
+training <- read.csv("~/pml-training.csv")
+testing <- read.csv("~/pml-testing.csv")
+```
+
+### **Exploratory Data Analysis**
+
+```{r}
+str(training)
+dim(training)
+dim(testing)
+```
+
+The dataset consists of 19.622 observations of 160 variables. The variable 'class' consist of five subclasses (A,B,C,D and E). There are six participants in this study. 
+
+### **Data Cleaning**
+
+Some variables have a lot of missing values. In this case we will remove all the variables containing missing values, to keep it simple. The first seven variabeles are not related to the variable class, for example 'username' and 'X'. We will remove the first seven columns. 
+
+```{r}
+NaValues <- sapply(training, function(x) mean(is.na(x))) > 0.9
+NaValues <- sapply(testing, function(x) mean(is.na(x))) > 0.9
+training <- training[, NaValues == "FALSE"]
+testing <- testing[, NaValues == "FALSE"]
+```
+
+```{r}
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+dim(training)
+dim (testing)
+```
+
+### **Crossvalidation**
+
+We will split the training dataset into 'training' and validation'. 
+
+```{r}
+inTrain <- createDataPartition(y= training$classe, p = 0.7, list = FALSE)
+training <- training[inTrain, ]
+validationdata <- training[-inTrain, ]
+```
+
+
+### **Model **
+
+The variable "class" is a character variabele. Let's change it to a factor variable: 
+
+```{r}
+training$classe <- factor(training$classe)
+class(training$classe)
+```
+
+I will use two methods on the training and the validation set. Each time i will plot a confusion matrix. At the end I will compare the results and choose the best model. The methods are Decision Tree and Random Forrest. 
+
+1. Decision Tree
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+cache = TRUE
+ModelFitRpart <- train(classe~., method = "rpart", data = training)
+PredictRpartval <- predict(ModelFitRpart, training)
+
+ConfusionMatrixValidationRpart <- confusionMatrix(PredictRpartval, training$classe)
+print(ConfusionMatrixValidationRpart)
+```
+
+2. Random forrest
+
+```{r}
+ModelFitRF <- train(classe~., method = "rf", data = training)
+PredictRF <- predict(ModelFitRF, training)
+
+confusionMatrixValidationRF <- confusionMatrix(PredictRF, training$classe)
+print(confusionMatrixValidationRF)
+
+```
+
+
+### **Out of sample error**
+
+The out of sample error is the error rate that you get on a new data set, in this case the validation set. Let's test our model on the validation set:
+
+```{r}
+predictValidation <- predict(ModelFitRpart, validationdata)
+confusionMatrix(predictValidation, validationdata$classe)
+confusionMatrix
+
+predictValidation <- predict(ModelFitRF, validationdata)
+confusionMatrix(predictValidation, validationdata$classe)
+confusionMatrix
+
+```
+
+### **Conclusion**
+
+Out of the two methods, tested on the validation data, the accurary of the random forrest method is better. Therefore we use the random forrest on the test data: 
+
+```{r}
+
+predictTest <- predict(ModelFitRF, testing)
+predictTest
+```
+
